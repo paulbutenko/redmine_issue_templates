@@ -513,6 +513,7 @@ class NOTE_TEMPLATE {
   constructor(config) {
     this.baseElementId = config.baseElementId;
     this.baseTemplateListUrl = config.baseTemplateListUrl;
+    this.basePopulateSelectUrl = config.basePopulateSelectUrl;
     this.baseTrackerId = config.baseTrackerId;
     this.baseProjectId = config.baseProjectId;
     this.loadNoteTemplateUrl = config.loadNoteTemplateUrl;
@@ -579,6 +580,139 @@ class NOTE_TEMPLATE {
       target.innerHTML = data;
       dialog.style = 'display: block;';
     });
+  }
+  populateTemplateSelect(elementId) {
+    let ns = this;
+    let token = document.querySelectorAll('#issue-form input[name="authenticity_token"]')
+
+    let populateSelectUrl = ns.basePopulateSelectUrl;
+    let projectId = document.getElementById('issue_project_id');
+    let trackerId = document.getElementById('issue_tracker_id');
+
+    if (trackerId && projectId) {
+      populateSelectUrl += '?tracker_id=' + trackerId.value + '&project_id=' + projectId.value;
+    } else {
+      populateSelectUrl += '?tracker_id=' + ns.baseTrackerId + '&project_id=' + ns.baseProjectId;
+    }
+
+    let req = new window.XMLHttpRequest();
+    req.onreadystatechange = function () {
+      if (req.readyState === 4) {
+        if (req.status === 200 || req.status === 304) {
+          let select = document.getElementById(elementId);
+          select.innerHTML += req.responseText;
+        } else {
+          console.error('Failed to load templates:', req.status, req.statusText);
+        }
+      }
+    };
+    req.open('GET', populateSelectUrl, true);
+    if (token) {
+      req.setRequestHeader('X-CSRF-Token', token.value);
+    }
+    req.send();
+  }
+  applyNoteTemplateFromSelect(selectElement) {
+    let ns = this;
+    let templateId = selectElement.value;
+    if (templateId === '') return;
+
+    let projectIdElement = document.getElementById('issue_project_id');
+    let loadUrl = ns.loadNoteTemplateUrl;
+
+    let JSONdata = {
+      note_template: {note_template_id: templateId}
+    };
+
+    // if global tmpl
+    let selectedOption = selectElement.options[selectElement.selectedIndex];
+    if (selectedOption.classList.contains('template-global')) {
+      JSONdata.note_template.template_type = 'global';
+      JSONdata.note_template.project_id = ns.baseProjectId;
+      if (projectIdElement && projectIdElement.value) {
+        JSONdata.note_template.project_id = projectIdElement.value;
+      }
+    }
+
+    let token = document.querySelector('#issue-form input[name="authenticity_token"]');
+    let req = new window.XMLHttpRequest();
+    req.onreadystatechange = function () {
+      if (req.readyState === 4) {
+        if (req.status === 200 || req.status === 304) {
+          let value = JSON.parse(req.responseText);
+          let target = 'issue_notes';
+          ns.setNoteFromSelect(target, value.note_template.description);
+        } else {
+          console.error('Failed to load template:', req.status, req.statusText);
+        }
+      }
+    };
+    req.open('POST', loadUrl, true);
+    if (token) {
+      req.setRequestHeader('X-CSRF-Token', token.value);
+    }
+    req.setRequestHeader('Content-Type', 'application/json');
+    req.send(JSON.stringify(JSONdata));
+  }
+  setNoteFromSelect(target, value) {
+    value = value.trim();
+    // convert markdown to html without libs
+    const replacePatterns = [
+      {pattern: /\*\*(.*?)\*\*/g, replacement: '<strong>$1</strong>'},
+      {pattern: /\*(.*?)\*/g, replacement: '<em>$1</em>'},
+      {pattern: /_(.*?)_/g, replacement: '<u>$1</u>'},
+      {pattern: /^###### (.*?)$/gm, replacement: '<h6>$1</h6>'},
+      {pattern: /^##### (.*?)$/gm, replacement: '<h5>$1</h5>'},
+      {pattern: /^#### (.*?)$/gm, replacement: '<h4>$1</h4>'},
+      {pattern: /^### (.*?)$/gm, replacement: '<h3>$1</h3>'},
+      {pattern: /^## (.*?)$/gm, replacement: '<h2>$1</h2>'},
+      {pattern: /^# (.*?)$/gm, replacement: '<h1>$1</h1>'}
+    ];
+
+    replacePatterns.forEach(({pattern, replacement}) => {
+      value = value.replace(pattern, replacement);
+    });
+
+    let html = value.split('\r\n\r\n').map(paragraph => {
+      if (paragraph.startsWith('*')) {
+        let items = paragraph.split('\r\n').map(item => `<li>${item.slice(1).trim()}</li>`).join('');
+        return `<ul>${items}</ul>`;
+      } else if (paragraph.match(/^\d+\./)) {
+        let items = paragraph.split('\r\n').map(item => {
+          let match = item.match(/^\d+\.\s+(.*)$/);
+          return match ? `<li>${match[1]}</li>` : '';
+        }).join('');
+        return `<ol>${items}</ol>`;
+      } else {
+        return `<p>${paragraph}</p>`;
+      }
+    }).join('');
+
+    // paste markdown value to markdown editor window
+    let element = document.getElementById(target)
+    if (element.value.length === 0) {
+      element.value = value
+    } else {
+      element.value += '\n\n' + value
+    }
+    element.focus()
+
+    // paste html to visual editor
+    $(tinymce.editors).each(function (index, editor) {
+      if (editor) {
+        editor.setContent(html);
+      }
+    })
+
+    let addNotesElement = document.getElementById('add_notes');
+    if (addNotesElement) {
+      let wysiwyg = addNotesElement.getElementsByClassName('wysiwyg-editor')[0];
+      if (wysiwyg) {
+        let iframes = wysiwyg.getElementsByTagName('iframe');
+        iframes[0].contentWindow.document.body.focus();
+      }
+    }
+
   }
 }
 

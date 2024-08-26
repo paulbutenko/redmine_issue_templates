@@ -101,6 +101,27 @@ class NoteTemplatesController < ApplicationController
     end
   end
 
+  def populate_select_options
+    tracker_id = params[:tracker_id]
+    project_id = params[:project_id]
+
+    note_templates = NoteTemplate.visible_note_templates_condition(
+      user_id: User.current.id, project_id: project_id, tracker_id: tracker_id
+    ).sorted
+
+    global_note_templates = GlobalNoteTemplate.visible_note_templates_condition(
+      user_id: User.current.id, project_id: project_id, tracker_id: tracker_id
+    ).sorted
+
+    respond_to do |format|
+      format.html do
+        render action: '_select_options',
+               layout: false,
+               locals: { note_templates: note_templates, global_note_templates: global_note_templates }
+      end
+    end
+  end
+
   def destroy
     unless @note_template.destroy
       flash[:error] = l(:enabled_template_cannot_destroy)

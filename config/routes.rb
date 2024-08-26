@@ -39,6 +39,11 @@ Rails.application.routes.draw do
     get 'list_templates', on: :collection
   end
 
+  resources :note_templates, only: %i[load preview populate_select_options] do
+    post 'load', on: :collection
+    get 'populate_select_options', on: :collection
+  end
+
   # for global note temlate
   resources :global_note_templates, except: [:edit], concerns: %i[previewable]
 end

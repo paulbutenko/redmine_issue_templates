@@ -1,0 +1,6 @@
+<% note_templates.each do |template| %>
+  <option class="test" value="<%= template.id %>" data-note-template-id="<%= template.id %>"> <%= template.name %> </option>
+<% end %>
+<% global_note_templates.each do |template| %>
+  <option class="template-global" value="<%= template.id %>" data-note-template-id="<%= template.id %>"> <%= template.name %> </option>
+<% end %>

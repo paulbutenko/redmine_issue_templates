@@ -7,12 +7,18 @@
   tracker_id = issue&.tracker_id
 %>
 <div id='<%= element_id %>'>
-  <label for='select_note_template' style='font-weight: bold;'>
+  <label for='select_note_template_<%= element_id %>' style='font-weight: bold;'>
     <%=h l(:label_template_for_note, default: 'Template for note') %>
   </label>
   <a class='icon template_tooltip' id='link_<%= element_id %>_dialog' href='#<%= element_id %>_dialog' onclick='noteTemplateNS.changeNoteTemplateList("<%= element_id %>")'>
     <%=h l(:display_and_filter_issue_templates_in_dialog, default: 'Filter Templates') %>
   </a>
+
+  <select id='select_note_template_<%= element_id %>' onchange='noteTemplateNS.applyNoteTemplateFromSelect(this)'>
+    <option value=''> Select a template </option>
+    <!-- Replaced w/ JavaScript -->
+  </select>
+
   <!-- dialog box -->
   <div id='<%= element_id %>_dialog' class='overlay'>
     <div class='popup'>
@@ -22,7 +28,7 @@
        </div>
      </div>
       <div class='filtered_templates_list'>
-        <!-- Replaced contemts -->
+        <!-- Replaced contents -->
       </div>
     </div>
   </div>
@@ -32,6 +38,7 @@
   var noteTemplateConfig = {
     baseElementId: '<%= element_id %>',
     baseTemplateListUrl: '<%= url_for(controller: 'note_templates', action:'list_templates') %>',
+    basePopulateSelectUrl: '<%= url_for(controller: 'note_templates', action:'populate_select_options') %>',
     baseTrackerId: <%= tracker_id %>,
     baseProjectId: <%= project_id %>,
     loadNoteTemplateUrl: '<%= load_note_templates_path %>'
@@ -49,4 +56,10 @@
   }
 
   window.noteTemplateNS ||= new NOTE_TEMPLATE(noteTemplateConfig)
+  document.addEventListener('DOMContentLoaded', function () {
+      let baseElementId = '<%= element_id %>';
+      let selectElementId = 'select_note_template_' + baseElementId;
+      noteTemplateNS.populateTemplateSelect(selectElementId);
+  });
+
 </script>
